@@ -8,8 +8,9 @@ from keras.preprocessing.image import ImageDataGenerator
 from sklearn.metrics import classification_report
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D , MaxPool2D , Flatten , Dropout
-from keras.optimizers import Adam
+from keras.optimizers.legacy import Adam
 
+import matplotlib.pyplot as plt
 
 import warnings
 
@@ -21,33 +22,14 @@ warnings.filterwarnings('ignore')
 """
 class Classifier(object):
     def __init__(self) -> None:
-        self.general_labels = [
-            "Defected",
-            "OK"
-        ]
         self.image_size = 128
         self.splitter_ration = 0.8
+        self.train_images = []
+        self.train_labels = []
 
-    def load_data(self, data_dir:str) -> None:
-        images = []
-        labels = []
-        for label in self.general_labels:
-            path = os.path.join(data_dir, label)
-            class_num = self.general_labels.index(label)
-            for img in os.listdir(path):
-                try:
-                    f = os.path.join(path, img)
-                    img_arr = cv2.imread(f, 0)
-                    if (img_arr is None):
-                        continue # go for the next image
-                    resized_arr = cv2.resize(img_arr, (self.image_size, self.image_size))
-                    images.append(resized_arr)
-                    labels.append(class_num)
-                except Exception as e:
-                    print(e)
-                    raise e
-        images = np.array(images)
-        labels = np.array(labels)
+    def load_data(self, data:dict) -> None:
+        images = np.array(data['x'])
+        labels = np.array(data['y'])
         if(len(images) == 0 or len(labels) == 0):
             raise Exception("empty database please provide a valid dataset")
         num_samples = len(images)
@@ -79,23 +61,32 @@ class Classifier(object):
 """
 class NNClassifier(Classifier):
     """ Classifier class uses for disk classification as OK or Defected"""
-    def __init__(self, image_size:int=128) -> None:
+    def __init__(self, labels:list[str], splitter_ration:float=0.8,name:str="sample", image_size:int=128) -> None:
         super().__init__()
         # default value
+        self.splitter_ration = splitter_ration
+        self.general_labels = labels
+        self.name = name
         self.image_size = image_size
-        self.model_path = os.path.join("models", "binary_classification_model.keras")
+        self.history = None
     
     def prepare_model(self, model_path:str="") -> None:
-        super().prepare_model()
+        if(len(self.train_images) != 0): # if we want to train the models
+            super().prepare_model()
+        # otherwise 
         # loading the model from file
-        if(self.model_path == ""):
+        self.model_path = os.path.join("models", f"{self.name}.keras")
+        if(model_path != ""):
             self.model_path = model_path
-        self.model = tf.keras.models.load_model(self.model_path)
+        try:
+            self.model = tf.keras.models.load_model(self.model_path)
+        except OSError:
+            return
         if(self.model == None):
             raise Exception("invalid model please provide a valid model or train new model with .train() function")
 
-    def load_data(self, data_dir:str) -> None:
-        super().load_data(data_dir)
+    def load_data(self, data:dict) -> None:
+        super().load_data(data)
     
     def evaluate(self) -> any:
         return self.model.evaluate(self.x_val, self.y_val, batch_size=128)
@@ -109,6 +100,25 @@ class NNClassifier(Classifier):
         predict = self.model.predict(img)
         return self.general_labels[np.argmax(predict)]
     
+    def plot_history(self) -> None:
+        if self.history is None:
+            raise Exception("first you need to train() your model then you can plot the history of learing")
+        # summarize history for accuracy
+        plt.plot(self.history.history['accuracy'])
+        plt.plot(self.history.history['val_accuracy'])
+        plt.title('model accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.show()
+        # summarize history for loss
+        plt.plot(self.history.history['loss'])
+        plt.plot(self.history.history['val_loss'])
+        plt.title('model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.show()
 
     def train(self, learning_rate:float=0.001, epochs:int=20) -> None:
         datagen = ImageDataGenerator(
@@ -124,25 +134,18 @@ class NNClassifier(Classifier):
             horizontal_flip = True,  # randomly flip images
             vertical_flip=False)  # randomly flip images
         datagen.fit(self.x_train)
+        # simple network for multiclass classification
         self.model = Sequential()
         self.model.add(Conv2D(32,3,padding="same", activation="relu", input_shape=(self.image_size,self.image_size,1)))
         self.model.add(MaxPool2D())
-
-        self.model.add(Conv2D(32, 3, padding="same", activation="relu"))
-        self.model.add(MaxPool2D())
-
-        self.model.add(Conv2D(64, 3, padding="same", activation="relu"))
-        self.model.add(MaxPool2D())
-        self.model.add(Dropout(0.4))
-
         self.model.add(Flatten())
-        self.model.add(Dense(128,activation="relu"))
-        self.model.add(Dense(2, activation="softmax"))
+        self.model.add(Dense(self.image_size,activation="relu"))
+        self.model.add(Dense(len(self.general_labels), activation="softmax"))
 
         opt = Adam(learning_rate=learning_rate)
-        self.model.compile(optimizer = opt , loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True) , metrics = ['accuracy'])
+        self.model.compile(optimizer=opt ,loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True) , metrics = ['accuracy'])
 
-        self.model.fit(self.x_train,self.y_train,epochs =epochs, validation_data = (self.x_val, self.y_val))
+        self.history = self.model.fit(self.x_train,self.y_train,epochs=epochs, validation_data = (self.x_val, self.y_val), batch_size=128)
         # saving the model
         self.model.save(self.model_path)
         
@@ -152,8 +155,9 @@ class NNClassifier(Classifier):
     KNN classifier Implementation
 """
 class KnnClassifier(Classifier):
-    def __init__(self, k:int=1, splitter_ratio:float=0.8) -> None:
+    def __init__(self, labels:list[str], k:int=1, splitter_ratio:float=0.8) -> None:
         super().__init__()
+        self.general_labels = labels
         self.image_size = 512
         self.splitter_ration = splitter_ratio
         self.k = k
@@ -162,8 +166,8 @@ class KnnClassifier(Classifier):
         self.train_images = []
         self.train_labels = []
         
-    def load_data(self, data_dir:str) -> None:
-        super().load_data(data_dir)
+    def load_data(self, data:dict) -> None:
+        super().load_data(data)
     
     def prepare_model(self, jobs:int=-1):
         super().prepare_model()
