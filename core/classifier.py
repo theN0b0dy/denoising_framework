@@ -9,6 +9,7 @@ from sklearn.metrics import classification_report
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D , MaxPool2D , Flatten , Dropout
 from keras.optimizers.legacy import Adam
+from sklearn.metrics import accuracy_score
 
 import matplotlib.pyplot as plt
 
@@ -155,10 +156,10 @@ class NNClassifier(Classifier):
     KNN classifier Implementation
 """
 class KnnClassifier(Classifier):
-    def __init__(self, labels:list[str], k:int=1, splitter_ratio:float=0.8) -> None:
+    def __init__(self, labels:list[str], k:int=1, imag_size:int=128, splitter_ratio:float=0.8) -> None:
         super().__init__()
         self.general_labels = labels
-        self.image_size = 512
+        self.image_size = imag_size
         self.splitter_ration = splitter_ratio
         self.k = k
         self.test_images = []
@@ -171,8 +172,8 @@ class KnnClassifier(Classifier):
     
     def prepare_model(self, jobs:int=-1):
         super().prepare_model()
-        self.x_train = self.x_train.reshape((self.x_train.shape[0], 262144))
-        self.x_val = self.x_val.reshape((self.x_val.shape[0], 262144))
+        self.x_train = self.x_train.reshape((self.x_train.shape[0], self.image_size * self.image_size))
+        self.x_val = self.x_val.reshape((self.x_val.shape[0], self.image_size * self.image_size))
 
         model = KNeighborsClassifier(n_neighbors=self.k, n_jobs=jobs)
         model.fit(self.x_train, self.y_train)
@@ -188,4 +189,6 @@ class KnnClassifier(Classifier):
         img = np.array(test_img)
         img = img.reshape((1, test_img.shape[0]*test_img.shape[1]))
         predict = self.model.predict(img)
+        test_accuracy = accuracy_score(self.y_val, self.model.predict(self.x_val))
+        print("Accuracy on test data = %.2f" % (test_accuracy * 100) + " % \n")
         return self.general_labels[predict[0]]
