@@ -39,4 +39,4 @@ model.load_data(data=data)
 model.prepare_model()
 
 print(model.evaluate())
-print(model.predict(img_path=data_dir + "/OK/aug_gauss_noise_cast_ok_0_2784.jpeg"))
+print(model.predict(img_path=data_dir + "/Defected/aug_gauss_noise_cast_def_0_1381.jpeg"))

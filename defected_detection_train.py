@@ -1,7 +1,7 @@
 import os
 import cv2
 
-from core.classifier import NNClassifier
+from core.classifier import CNNClassifier
 
 general_labels = [
     "Defected",
@@ -31,7 +31,7 @@ data = {
     'x': images,
     'y': labels
 }
-c2 = NNClassifier(labels=general_labels, name="binary_classification_model", image_size=128)
+c2 = CNNClassifier(labels=general_labels, name="binary_classification_model", image_size=128)
 c2.load_data(data=data)
 c2.prepare_model()
 c2.train(learning_rate=0.001, epochs=50)

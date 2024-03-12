@@ -60,7 +60,7 @@ class Classifier(object):
 """ 
     Nerual Network classifier Implementation
 """
-class NNClassifier(Classifier):
+class CNNClassifier(Classifier):
     """ Classifier class uses for disk classification as OK or Defected"""
     def __init__(self, labels:list[str], splitter_ration:float=0.8,name:str="sample", image_size:int=128) -> None:
         super().__init__()

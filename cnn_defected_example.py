@@ -2,9 +2,9 @@
 import os
 import cv2
 
-from core.classifier import NNClassifier
+from core.classifier import CNNClassifier
 
-img_path = "/Users/amir/Desktop/computer_vision/project/DataSet1/OK/aug_gauss_noise_cast_ok_0_2785.jpeg"
+img_path = "/Users/amir/Desktop/computer_vision/project/DataSet1/Defected/aug_gauss_noise_cast_def_0_2148.jpeg"
 
 general_labels = [
     "Defected",
@@ -35,8 +35,8 @@ data = {
 }
 
 
-model = NNClassifier(labels=general_labels, name="binary_classification_model")
+model = CNNClassifier(labels=general_labels, name="binary_classification_model")
 model.load_data(data=data)
-model.prepare_model(model_path="./models/binary_classification_model.keras")
+model.prepare_model()
 print(model.evaluate())
 print(model.predict(img_path=img_path))
